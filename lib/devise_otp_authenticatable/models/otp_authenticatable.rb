@@ -69,7 +69,7 @@ module Devise::Models
         :otp_recovery_forced_until => nil,
         :otp_failed_attempts => 0,
         :otp_recovery_counter => 0,
-        :otp_backup_codes => nil,
+        :otp_backup_codes => [],
         :otp_by_email_token_expires => nil,
         :otp_by_email_counter => 0
       )
@@ -81,7 +81,7 @@ module Devise::Models
     end
 
     def disable_otp!
-      update!(otp_enabled: false, otp_by_email_enabled: false, otp_enabled_on: nil, otp_backup_codes: nil)
+      update!(otp_enabled: false, otp_by_email_enabled: false, otp_enabled_on: nil, otp_backup_codes: [])
     end
 
     def generate_otp_challenge!(expires = nil)
@@ -138,12 +138,12 @@ module Devise::Models
 
       codes = otp_backup_codes.dup # Prevent modifying the array directly
       codes.each do |backup_code|
-        if Devise::Encryptor.compare(self.class, backup_code, token)
-          codes.delete(backup_code)
-          self.otp_backup_codes = codes
-          save!(validate: false)
-          return true
-        end
+        next unless Devise::Encryptor.compare(self.class, backup_code, token)
+
+        codes.delete(backup_code)
+        self.otp_backup_codes = codes
+        save!(validate: false)
+        return true
       end
       false
     end
