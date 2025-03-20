@@ -76,6 +76,7 @@ module Devise::Models
     end
 
     def enable_otp!(otp_by_email: false)
+      generate_otp_recovery_counters!
       populate_otp_secrets! if otp_by_email
       update!(otp_enabled: true, otp_by_email_enabled: otp_by_email, otp_enabled_on: Time.now)
     end
@@ -119,30 +120,16 @@ module Devise::Models
     alias_method :valid_otp_time_token?, :validate_otp_time_token
 
     def otp_recovery_tokens
-      return generate_otp_recovery_counters! if otp_recovery_counters.blank?
-
-      derive_raw_recovery_tokens
-    end
-
-    def generate_otp_recovery_counters!
-      self.otp_recovery_counter = SecureRandom.random_number(1_000_000)  # use a random starting point
-      self.otp_recovery_counters = (otp_recovery_counter...(otp_recovery_counter + self.class.otp_recovery_token_count)).to_a
-
-      save!(validate: false)
-      derive_raw_recovery_tokens # return codes for show
+      otp_recovery_counters.map { recovery_otp.at(_1) }
     end
 
     def validate_otp_recovery_token(token)
-      return if token.blank? || otp_recovery_counters.blank?
-
-      otp_recovery_counters.each do |counter|
-        next unless recovery_otp.at(counter) == token
-
-        otp_recovery_counters.delete(counter)
-        save!(validate: false)
+      used_counter_index = otp_recovery_counters.index { recovery_otp.verify(token, _1) }
+      if used_counter_index.present?
+        otp_recovery_counters.delete_at(used_counter_index)
+        save!
         return true
       end
-      nil
     end
     alias_method :valid_otp_recovery_token?, :validate_otp_recovery_token
 
@@ -207,8 +194,8 @@ module Devise::Models
       self.otp_recovery_secret = ROTP::Base32.random_base32
     end
 
-    def derive_raw_recovery_tokens(number_of_backup_codes = self.class.otp_recovery_token_count)
-      (otp_recovery_counter...otp_recovery_counter + number_of_backup_codes).map { |index| recovery_otp.at(index) }
+    def generate_otp_recovery_counters!
+      update!(otp_recovery_counters: self.class.otp_recovery_token_count.times.to_a)
     end
 
     def now
