@@ -67,8 +67,9 @@ module Devise::Models
         :otp_session_challenge => nil,
         :otp_challenge_expires => nil,
         :otp_recovery_forced_until => nil,
-        :otp_failed_attempts => 0,
+        :otp_recovery_counter => 0,
         :otp_recovery_counters => "[]",
+        :otp_failed_attempts => 0,
         :otp_by_email_token_expires => nil,
         :otp_by_email_counter => 0
       )
@@ -176,6 +177,14 @@ module Devise::Models
       self.otp_by_email_token_expires.before?(time)
     end
 
+    def generate_otp_recovery_counters!
+      new_otp_recovery_counter = self.otp_recovery_counter + self.class.otp_recovery_token_count
+      update!(
+        otp_recovery_counters: (self.otp_recovery_counter...new_otp_recovery_counter).map.to_json,
+        otp_recovery_counter: new_otp_recovery_counter,
+      )
+    end
+
     private
 
     def validate_otp_token_with_drift(token)
@@ -192,10 +201,6 @@ module Devise::Models
     def generate_otp_auth_secret
       self.otp_auth_secret = ROTP::Base32.random_base32
       self.otp_recovery_secret = ROTP::Base32.random_base32
-    end
-
-    def generate_otp_recovery_counters!
-      update!(otp_recovery_counters: self.class.otp_recovery_token_count.times.to_json)
     end
 
     def now
