@@ -48,13 +48,14 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
       :otp_by_email_counter => 1,
       :otp_by_email_token_expires => now,
       :otp_recovery_counters => "[1,2,3]",
+      :otp_recovery_counter => 1,
     )
 
     assert user.otp_enabled
     [:otp_auth_secret, :otp_recovery_secret, :otp_persistence_seed, :otp_recovery_forced_until, :otp_by_email_token_expires].each do |field|
       assert_not_nil user.send(field)
     end
-    [:otp_failed_attempts, :otp_by_email_counter].each do |field|
+    [:otp_failed_attempts, :otp_by_email_counter, :otp_recovery_counter].each do |field|
       assert_not user.send(field) == 0
     end
     assert user.otp_recovery_counters != "[]"
@@ -63,7 +64,7 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     [:otp_auth_secret, :otp_recovery_secret, :otp_persistence_seed, :otp_recovery_forced_until, :otp_by_email_token_expires].each do |field|
       assert_nil user.send(field)
     end
-    [:otp_failed_attempts, :otp_by_email_counter].each do |field|
+    [:otp_failed_attempts, :otp_by_email_counter, :otp_recovery_counter].each do |field|
       assert user.send(field) == 0
     end
     assert user.otp_recovery_counters == "[]"
@@ -147,7 +148,7 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     end
   end
 
-  test "recovery secrets should be valid, and valid only once" do
+  test "recovery tokens should be valid, and valid only once" do
     u = User.first
     u.populate_otp_secrets!
     u.enable_otp!
@@ -156,6 +157,22 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert u.valid_otp_recovery_token? recovery[5]
     assert_nil u.valid_otp_recovery_token?(recovery[5])
     assert u.valid_otp_recovery_token? recovery[2]
+  end
+
+  test "generate_otp_recovery_counters! generates a new set every call and advances otp_recovery_counter" do
+    u = User.first
+
+    u.generate_otp_recovery_counters!
+    assert u.otp_recovery_counter == 10
+    assert u.otp_recovery_counters == (0..9).map.to_json
+
+    u.generate_otp_recovery_counters!
+    assert u.otp_recovery_counter == 20
+    assert u.otp_recovery_counters == (10..19).map.to_json
+
+    u.generate_otp_recovery_counters!
+    assert u.otp_recovery_counter == 30
+    assert u.otp_recovery_counters == (20..29).map.to_json
   end
 
   test "max_failed_attempts_exceeded? is true when failed_attempts > otp_max_failed_attempts" do
