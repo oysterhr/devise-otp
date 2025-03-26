@@ -20,6 +20,7 @@ module DeviseOtp
           @recovery = true
           otp_set_flash_message(:alert, :too_many_failed_attempts, now: true)
         elsif resource.otp_by_email_enabled?
+          @otp_by_email = true
           otp_set_flash_message(:notice, :otp_by_email_code_sent, now: true)
           resource.send_email_otp_instructions if resource.otp_by_email_token_expired?
         end
