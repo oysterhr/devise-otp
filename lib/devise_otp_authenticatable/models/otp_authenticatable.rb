@@ -184,6 +184,13 @@ module Devise::Models
       self.otp_by_email_token_expires.before?(time)
     end
 
+    def otp_by_email_token_remaining_time(time = Time.current)
+      return 0 if self.otp_by_email_token_expires.blank?
+
+      remaining_time = self.otp_by_email_token_expires - time
+      [remaining_time, 0].max
+    end
+
     def generate_otp_recovery_counters!
       new_otp_recovery_counter = self.otp_recovery_counter + self.class.otp_recovery_token_count
       update!(
