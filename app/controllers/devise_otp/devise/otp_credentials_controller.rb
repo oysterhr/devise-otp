@@ -24,8 +24,7 @@ module DeviseOtp
           end
         end
 
-        yield resource if block_given?
-
+        yield resource, nil if block_given?
         render :show
       end
 
