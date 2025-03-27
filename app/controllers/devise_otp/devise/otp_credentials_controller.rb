@@ -6,8 +6,8 @@ module DeviseOtp
       prepend_before_action :authenticate_scope!, only: [:get_refresh, :set_refresh]
       prepend_before_action :require_no_authentication, only: [:show, :update]
       before_action :set_challenge, only: [:show, :update]
-      before_action :set_recovery, only: [:show, :update]
       before_action :set_resource, only: [:show, :update]
+      before_action :set_otp_state, only: [:show, :update]
       before_action :set_token, only: [:update]
       before_action :skip_challenge_if_trusted_browser, only: [:show, :update]
 
@@ -15,16 +15,16 @@ module DeviseOtp
       # show a request for the OTP token
       #
       def show
-        if resource.within_recovery_timeout?
-          @otp_recovery_forced = true
-          @recovery = true
-          otp_set_flash_message(:alert, :too_many_failed_attempts, now: true)
-        elsif resource.otp_by_email_enabled?
-          @otp_by_email = true
-          otp_set_flash_message(:notice, :otp_by_email_code_sent, now: true)
-          resource.send_email_otp_instructions if resource.otp_by_email_token_expired?
+        if @otp_recovery_forced
+          otp_set_flash_message(:alert, :too_many_failed_attempts)
+        elsif @otp_by_email
+          if resource.otp_by_email_token_expired?
+            resource.send_email_otp_instructions
+            otp_set_flash_message(:notice, :otp_by_email_code_sent)
+          end
         end
 
+        yield resource, nil if block_given?
         render :show
       end
 
@@ -34,7 +34,8 @@ module DeviseOtp
       def update
         if @token.blank?
           otp_set_flash_message(:alert, :token_blank, now: true)
-          return render(:show)
+          yield resource, :token_blank if block_given?
+          return render :show
         end
 
         if resource.otp_challenge_valid? && resource.validate_otp_token(@token, @recovery)
@@ -44,23 +45,33 @@ module DeviseOtp
 
           otp_set_trusted_device_for(resource) if params[:enable_persistence] == "true"
           otp_refresh_credentials_for(resource)
+          yield resource, :success if block_given?
           respond_with resource, location: after_sign_in_path_for(resource)
         else
           resource.bump_failed_attempts
 
-          message = :token_invalid
+          message_id = :token_invalid
           # TODO: deduplicate code copied from #show
           if resource.within_recovery_timeout?
             @otp_recovery_forced = true
-            message = :too_many_failed_attempts
+            message_id = :too_many_failed_attempts
           elsif resource.otp_by_email_enabled? && resource.otp_by_email_token_expired?
-            message = :otp_by_email_code_expired
+            message_id = :otp_by_email_code_expired
             resource.send_email_otp_instructions
           end
 
-          otp_set_flash_message(:alert, message, now: true)
+          otp_set_flash_message(:alert, message_id, now: true)
+          yield resource, message_id if block_given?
           render :show
         end
+      end
+
+      def get_resend_email
+        otp_set_flash_message(:notice, :otp_by_email_code_sent)
+        resource.send_email_otp_instructions
+        @otp_by_email_token_remaining_time = resource.otp_by_email_token_remaining_time
+        yield resource if block_given?
+        render :show
       end
 
       #
@@ -94,8 +105,17 @@ module DeviseOtp
         end
       end
 
-      def set_recovery
+      def set_otp_state
         @recovery = (recovery_enabled? && params[:recovery] == "true")
+        if resource.otp_by_email_enabled?
+          @otp_by_email = true
+          @otp_by_email_token_remaining_time = resource.otp_by_email_token_remaining_time
+        end
+
+        if resource.within_recovery_timeout?
+          @otp_recovery_forced = true
+          @recovery = true
+        end
       end
 
       def set_resource
@@ -126,7 +146,7 @@ module DeviseOtp
 
       def failed_refresh
         otp_set_flash_message :alert, :invalid_refresh, :now => true
-        render :refresh
+        render :show
       end
 
       def self.controller_path
