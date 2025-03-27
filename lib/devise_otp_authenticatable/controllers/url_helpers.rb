@@ -35,6 +35,11 @@ module DeviseOtpAuthenticatable
         scope = ::Devise::Mapping.find_scope!(resource_or_scope)
         send("#{scope}_otp_credential_path", opts)
       end
+
+      def resend_email_otp_credential_path_for(resource_or_scope, opts = {})
+        scope = ::Devise::Mapping.find_scope!(resource_or_scope)
+        send("resend_email_#{scope}_otp_credential_path", opts)
+      end
     end
   end
 end

@@ -51,20 +51,26 @@ module DeviseOtp
         else
           resource.bump_failed_attempts
 
-          error_id = :token_invalid
+          message_id = :token_invalid
           # TODO: deduplicate code copied from #show
           if resource.within_recovery_timeout?
             @otp_recovery_forced = true
-            error_id = :too_many_failed_attempts
+            message_id = :too_many_failed_attempts
           elsif resource.otp_by_email_enabled? && resource.otp_by_email_token_expired?
-            error_id = :otp_by_email_code_expired
+            message_id = :otp_by_email_code_expired
             resource.send_email_otp_instructions
           end
 
-          otp_set_flash_message(:alert, error_id, now: true)
-          yield resource, error_id if block_given?
+          otp_set_flash_message(:alert, message_id, now: true)
+          yield resource, message_id if block_given?
           render :show
         end
+      end
+
+      def get_resend_email
+        otp_set_flash_message(:notice, :otp_by_email_code_sent)
+        yield resource if block_given?
+        render :show
       end
 
       #
