@@ -1,4 +1,5 @@
 require "rotp"
+require "rqrcode"
 
 module Devise::Models
   module OtpAuthenticatable
@@ -18,16 +19,23 @@ module Devise::Models
       end
     end
 
+    def issuer
+      @issuer ||= (self.class.otp_issuer || Rails.application.class.module_parent_name).to_s
+    end
+
     def time_based_otp
-      @time_based_otp ||= ROTP::TOTP.new(otp_auth_secret, issuer: (self.class.otp_issuer || Rails.application.class.module_parent_name).to_s)
+      populate_otp_secrets!
+      ROTP::TOTP.new(otp_auth_secret, issuer:)
     end
 
     def recovery_otp
-      @recovery_otp ||= ROTP::HOTP.new(otp_recovery_secret)
+      populate_otp_secrets!
+      ROTP::HOTP.new(otp_recovery_secret)
     end
 
     def otp_by_email
-      @otp_by_email ||= ROTP::HOTP.new(otp_auth_secret)
+      populate_otp_secrets!
+      ROTP::HOTP.new(otp_auth_secret)
     end
 
     def otp_provisioning_uri
@@ -56,10 +64,6 @@ module Devise::Models
     end
 
     def clear_otp_fields!
-      @time_based_otp = nil
-      @recovery_otp = nil
-      @otp_by_email = nil
-
       self.update!(
         :otp_auth_secret => nil,
         :otp_recovery_secret => nil,
@@ -77,7 +81,6 @@ module Devise::Models
 
     def enable_otp!(otp_by_email: false)
       generate_otp_recovery_counters!
-      populate_otp_secrets! if otp_by_email
       update!(otp_enabled: true, otp_by_email_enabled: otp_by_email, otp_enabled_on: Time.now)
     end
 
@@ -183,6 +186,13 @@ module Devise::Models
         otp_recovery_counters: (self.otp_recovery_counter...new_otp_recovery_counter).map.to_json,
         otp_recovery_counter: new_otp_recovery_counter,
       )
+    end
+
+    #
+    # returns the URL for the QR Code to initialize the Authenticator device
+    #
+    def otp_authenticator_qrcode
+      RQRCode::QRCode.new(otp_provisioning_uri).as_svg(:module_size => 5, :viewbox => true, :use_path => true)
     end
 
     private
