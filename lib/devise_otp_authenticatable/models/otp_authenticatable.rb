@@ -4,6 +4,7 @@ require "rqrcode"
 module Devise::Models
   module OtpAuthenticatable
     extend ActiveSupport::Concern
+    EMAIL_OTP_EXTRA_SESSION_TIME = 30.seconds
 
     included do
       scope :with_valid_otp_challenge, lambda { |time| where("otp_challenge_expires > ?", time) }
@@ -180,7 +181,7 @@ module Devise::Models
         otp_by_email_token_expires: time + self.class.otp_by_email_code_timeout,
         otp_by_email_counter: self.otp_by_email_counter + 1,
       )
-      extend_otp_challenge_timeout(self.class.otp_by_email_code_timeout + 30.seconds)
+      extend_otp_challenge_timeout(self.class.otp_by_email_code_timeout + EMAIL_OTP_EXTRA_SESSION_TIME)
     end
 
     def otp_by_email_token_expired?(time = now)
