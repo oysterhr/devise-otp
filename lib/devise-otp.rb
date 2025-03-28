@@ -82,8 +82,8 @@ module Devise
   #
   # email otp token if valid for
   #
-  mattr_accessor :otp_by_email_code_valid_for
-  @@otp_by_email_code_valid_for = 5.minutes
+  mattr_accessor :otp_by_email_code_timeout
+  @@otp_by_email_code_timeout = 5.minutes
 
   #
   # add PublicHelpers to helpers class variable to ensure that per-mapping helpers are present.

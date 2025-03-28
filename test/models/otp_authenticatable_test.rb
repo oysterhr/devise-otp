@@ -253,14 +253,14 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     user = User.first
     user.update!(otp_by_email_counter: 0, otp_by_email_token_expires: nil)
     now = Time.now.utc.round(6)
-    otp_by_email_code_valid_for = user.class.otp_by_email_code_valid_for
+    otp_by_email_code_timeout = user.class.otp_by_email_code_timeout
 
     user.otp_by_email_advance_counter(now)
     assert_equal user.otp_by_email_counter, 1
-    assert user.otp_by_email_token_expires.eql?(now+otp_by_email_code_valid_for)
+    assert user.otp_by_email_token_expires.eql?(now+otp_by_email_code_timeout)
 
     user.otp_by_email_advance_counter(now+1)
     assert_equal user.otp_by_email_counter, 2
-    assert user.otp_by_email_token_expires.eql?(now+otp_by_email_code_valid_for+1)
+    assert user.otp_by_email_token_expires.eql?(now+otp_by_email_code_timeout+1)
   end
 end

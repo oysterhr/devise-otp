@@ -280,5 +280,5 @@ Devise.setup do |config|
   #config.otp_recovery_timeout = 30.minutes
 
   # Email OTP code valid for
-  #config.otp_by_email_code_valid_for = 5.minutes
+  #config.otp_by_email_code_timeout = 5.minutes
 end
