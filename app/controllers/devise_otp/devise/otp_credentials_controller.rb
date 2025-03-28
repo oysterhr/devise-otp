@@ -17,14 +17,15 @@ module DeviseOtp
       def show
         if @otp_recovery_forced
           message_type, message_id = [:alert, :too_many_failed_attempts]
-        elsif @otp_by_email
+        elsif !@recovery && @otp_by_email
           if resource.otp_by_email_token_expired?
             resource.send_email_otp_instructions
             set_email_token_remaining_time
             message_type, message_id = [:notice , :otp_by_email_code_sent]
           end
         end
-        otp_set_flash_message(message_type, message_id, now: true)
+
+        otp_set_flash_message(message_type, message_id, now: true) if message_id
         yield resource, message_id if block_given?
         render :show
       end
