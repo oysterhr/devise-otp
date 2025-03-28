@@ -4,27 +4,28 @@ module DeviseOtp
       helper_method :new_session_path
 
       prepend_before_action :authenticate_scope!, only: [:get_refresh, :set_refresh]
-      prepend_before_action :require_no_authentication, only: [:show, :update]
-      before_action :set_challenge, only: [:show, :update]
-      before_action :set_resource, only: [:show, :update]
-      before_action :set_otp_state, only: [:show, :update]
+      prepend_before_action :require_no_authentication, only: [:show, :update, :resend_email]
+      before_action :set_challenge, only: [:show, :update, :resend_email]
+      before_action :set_resource, only: [:show, :update, :resend_email]
+      before_action :set_otp_state, only: [:show, :update, :resend_email]
       before_action :set_token, only: [:update]
-      before_action :skip_challenge_if_trusted_browser, only: [:show, :update]
+      before_action :skip_challenge_if_trusted_browser, only: [:show, :update, :resend_email]
 
       #
       # show a request for the OTP token
       #
       def show
         if @otp_recovery_forced
-          otp_set_flash_message(:alert, :too_many_failed_attempts)
+          message_type, message_id = [:alert, :too_many_failed_attempts]
         elsif @otp_by_email
           if resource.otp_by_email_token_expired?
             resource.send_email_otp_instructions
-            otp_set_flash_message(:notice, :otp_by_email_code_sent)
+            set_email_token_remaining_time
+            message_type, message_id = [:notice , :otp_by_email_code_sent]
           end
         end
-
-        yield resource, nil if block_given?
+        otp_set_flash_message(message_type, message_id, now: true)
+        yield resource, message_id if block_given?
         render :show
       end
 
@@ -66,10 +67,10 @@ module DeviseOtp
         end
       end
 
-      def get_resend_email
-        otp_set_flash_message(:notice, :otp_by_email_code_sent)
+      def resend_email
         resource.send_email_otp_instructions
-        @otp_by_email_token_remaining_time = resource.otp_by_email_token_remaining_time
+        set_email_token_remaining_time
+        otp_set_flash_message(:notice, :otp_by_email_code_resent)
         yield resource if block_given?
         render :show
       end
@@ -109,13 +110,18 @@ module DeviseOtp
         @recovery = (recovery_enabled? && params[:recovery] == "true")
         if resource.otp_by_email_enabled?
           @otp_by_email = true
-          @otp_by_email_token_remaining_time = resource.otp_by_email_token_remaining_time
+          set_email_token_remaining_time
         end
 
         if resource.within_recovery_timeout?
           @otp_recovery_forced = true
           @recovery = true
         end
+      end
+
+      def set_email_token_remaining_time
+        return unless resource.present?
+        @otp_by_email_token_remaining_time = resource.otp_by_email_token_remaining_time
       end
 
       def set_resource

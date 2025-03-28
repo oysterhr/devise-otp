@@ -12,7 +12,7 @@ module Devise::Models
     module ClassMethods
       ::Devise::Models.config(self, :otp_authentication_timeout, :otp_drift_window, :otp_trust_persistence,
         :otp_mandatory, :otp_credentials_refresh, :otp_issuer, :otp_recovery_token_count,
-        :otp_controller_path, :otp_max_failed_attempts, :otp_recovery_timeout, :otp_by_email_code_valid_for)
+        :otp_controller_path, :otp_max_failed_attempts, :otp_recovery_timeout, :otp_by_email_code_timeout)
 
       def find_valid_otp_challenge(challenge)
         with_valid_otp_challenge(Time.now).where(otp_session_challenge: challenge).first
@@ -94,6 +94,10 @@ module Devise::Models
       otp_session_challenge
     end
 
+    def extend_otp_challenge_timeout(expires = nil)
+      update!(otp_challenge_expires: DateTime.now + (expires || self.class.otp_authentication_timeout))
+    end
+
     def otp_challenge_valid?
       (otp_challenge_expires.nil? || otp_challenge_expires > Time.now)
     end
@@ -173,9 +177,10 @@ module Devise::Models
 
     def otp_by_email_advance_counter(time = now)
       update!(
-        otp_by_email_token_expires: time + self.class.otp_by_email_code_valid_for,
+        otp_by_email_token_expires: time + self.class.otp_by_email_code_timeout,
         otp_by_email_counter: self.otp_by_email_counter + 1,
       )
+      extend_otp_challenge_timeout(self.class.otp_by_email_code_timeout + 30.seconds)
     end
 
     def otp_by_email_token_expired?(time = now)
