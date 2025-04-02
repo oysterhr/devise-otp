@@ -258,6 +258,29 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert user.otp_recovery_forced_until.eql?(now+otp_recovery_timeout)
   end
 
+  # Increases otp_recovery_failed_attempts by 1 in regular case.
+  # Sets otp_recovery_blocked_until and otp_recovery_failed_attempts=0 when otp_recovery_max_failed_attempts are reached.
+  test "bump_failed_recovery_attempts" do
+    user = User.first
+    max_attempts = user.class.otp_recovery_max_failed_attempts
+    timeout = user.class.otp_recovery_blocked_timeout
+    now = Time.now.utc.round(6)
+
+    user.update!(otp_recovery_failed_attempts: max_attempts-2, otp_recovery_blocked_until: nil)
+
+    user.bump_failed_recovery_attempts(now)
+    assert_equal user.otp_recovery_failed_attempts, max_attempts-1
+    assert_nil user.otp_recovery_blocked_until
+
+    user.bump_failed_recovery_attempts(now)
+    assert_equal user.otp_recovery_failed_attempts, max_attempts
+    assert_nil user.otp_recovery_blocked_until
+
+    user.bump_failed_recovery_attempts(now)
+    assert user.otp_recovery_failed_attempts == 0
+    assert user.otp_recovery_blocked_until.eql?(now+timeout)
+  end
+
   test "otp_by_email_token_expired? true if otp_by_email_token_expires blank or before provided time" do
     user = User.new
     now = Time.now.utc
