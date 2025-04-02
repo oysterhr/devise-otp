@@ -165,8 +165,17 @@ module Devise::Models
       self.save!
     end
 
+    def bump_failed_recovery_attempts(time = now)
+      self.otp_recovery_failed_attempts += 1
+      if max_recovery_failed_attempts_exceeded?
+        self.otp_recovery_blocked_until = time + self.class.otp_recovery_blocked_timeout
+        self.otp_recovery_failed_attempts = 0
+      end
+      self.save!
+    end
+
     def reset_failed_attempts
-      update!(otp_failed_attempts: 0, otp_recovery_forced_until: nil)
+      update!(otp_failed_attempts: 0, otp_recovery_forced_until: nil, otp_recovery_failed_attempts: 0, otp_recovery_blocked_until: nil)
     end
 
     def otp_by_email_token

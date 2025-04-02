@@ -205,13 +205,21 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert_equal user.within_recovery_timeout?(now+1), false
   end
 
-  test "reset_failed_attempts sets otp_failed_attemps to 0, and otp_recovery_forced_until to nil" do
+  # Sets otp_failed_attempts to 0, otp_recovery_forced_until to nil
+  # otp_recovery_failed_attempts to 0, otp_recovery_blocked_until to nil
+  test "reset_failed_attempts" do
     user = User.first
-    user.update!(otp_failed_attempts: 12, otp_recovery_forced_until: Time.now.utc)
+    now = Time.now.utc
+    user.update!(
+      otp_failed_attempts: 12, otp_recovery_forced_until: now,
+      otp_recovery_failed_attempts: 12, otp_recovery_blocked_until: now,
+    )
 
     user.reset_failed_attempts
     assert_equal user.otp_failed_attempts, 0
     assert_nil user.otp_recovery_forced_until
+    assert_equal user.otp_recovery_failed_attempts, 0
+    assert_nil user.otp_recovery_blocked_until
   end
 
   test "bump_failed_attempts increases otp_failed_attempts by 1 and sets otp_recovery_forced_until if otp_max_failed_attempts is exceeded" do
