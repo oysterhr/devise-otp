@@ -120,7 +120,7 @@ module DeviseOtp
       end
 
       def set_otp_state
-        @recovery_blocked = recovery_blocked?
+        @recovery_blocked = resource.recovery_blocked?
         @recovery = (recovery_enabled? && params[:recovery] == "true")
         if resource.otp_by_email_enabled?
           @otp_by_email = true

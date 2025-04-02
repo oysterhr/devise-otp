@@ -175,7 +175,8 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert u.otp_recovery_counters == (20..29).map.to_json
   end
 
-  test "max_failed_attempts_exceeded? is true when failed_attempts > otp_max_failed_attempts" do
+  # is true when failed_attempts >= otp_max_failed_attempts
+  test "max_failed_attempts_exceeded?" do
     user = User.new
     otp_max_failed_attempts = user.class.otp_max_failed_attempts
 
@@ -184,8 +185,8 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert_equal user.max_failed_attempts_exceeded?, false
 
     user.update(otp_failed_attempts: otp_max_failed_attempts)
-    assert user.otp_failed_attempts = otp_max_failed_attempts
-    assert_equal user.max_failed_attempts_exceeded?, false
+    assert_equal user.otp_failed_attempts, otp_max_failed_attempts
+    assert_equal user.max_failed_attempts_exceeded?, true
 
     user.update(otp_failed_attempts: otp_max_failed_attempts+1)
     assert user.otp_failed_attempts > otp_max_failed_attempts
@@ -237,7 +238,9 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert_nil user.otp_recovery_blocked_until
   end
 
-  test "bump_failed_attempts increases otp_failed_attempts by 1. If otp_max_failed_attempts is exceeded sets otp_failed_attempts to 0 and sets otp_recovery_forced_until" do
+  # Increases otp_failed_attempts by 1.
+  # If otp_max_failed_attempts is exceeded sets otp_failed_attempts to 0 and sets otp_recovery_forced_until
+  test "bump_failed_attempts" do
     user = User.first
     otp_max_failed_attempts = user.class.otp_max_failed_attempts
     otp_recovery_timeout = user.class.otp_recovery_timeout
@@ -250,11 +253,11 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert_nil user.otp_recovery_forced_until
 
     user.bump_failed_attempts(now)
-    assert_equal user.otp_failed_attempts, otp_max_failed_attempts
-    assert_nil user.otp_recovery_forced_until
+    assert_equal user.otp_failed_attempts, 0
+    assert user.otp_recovery_forced_until.eql?(now+otp_recovery_timeout)
 
     user.bump_failed_attempts(now)
-    assert_equal user.otp_failed_attempts, 0
+    assert_equal user.otp_failed_attempts, 1
     assert user.otp_recovery_forced_until.eql?(now+otp_recovery_timeout)
   end
 
