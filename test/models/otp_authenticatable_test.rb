@@ -192,7 +192,7 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert_equal user.max_failed_attempts_exceeded?, true
   end
 
-  # true when otp_recovery_failed_attempts > otp_max_recovery_failed_attempts
+  # true when otp_recovery_failed_attempts >= otp_max_recovery_failed_attempts
   test "max_recovery_failed_attempts_exceeded?" do
     user = User.new
     max_failed = user.class.otp_recovery_max_failed_attempts
@@ -201,7 +201,7 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert_equal user.max_recovery_failed_attempts_exceeded?, false
 
     user.update(otp_recovery_failed_attempts: max_failed)
-    assert_equal user.max_recovery_failed_attempts_exceeded?, false
+    assert_equal user.max_recovery_failed_attempts_exceeded?, true
 
     user.update(otp_recovery_failed_attempts: max_failed+1)
     assert_equal user.max_recovery_failed_attempts_exceeded?, true
@@ -273,11 +273,11 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert_nil user.otp_recovery_blocked_until
 
     user.bump_failed_recovery_attempts(now)
-    assert_equal user.otp_recovery_failed_attempts, max_attempts
-    assert_nil user.otp_recovery_blocked_until
+    assert_equal user.otp_recovery_failed_attempts, 0
+    assert user.otp_recovery_blocked_until.eql?(now+timeout)
 
     user.bump_failed_recovery_attempts(now)
-    assert user.otp_recovery_failed_attempts == 0
+    assert_equal user.otp_recovery_failed_attempts, 1
     assert user.otp_recovery_blocked_until.eql?(now+timeout)
   end
 

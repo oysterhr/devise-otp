@@ -182,7 +182,7 @@ module Devise::Models
     end
 
     def max_recovery_failed_attempts_exceeded?
-      otp_recovery_failed_attempts > self.class.otp_recovery_max_failed_attempts
+      otp_recovery_failed_attempts >= self.class.otp_recovery_max_failed_attempts
     end
 
     def reset_failed_attempts
