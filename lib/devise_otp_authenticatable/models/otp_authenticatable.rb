@@ -151,6 +151,12 @@ module Devise::Models
       time.before?(self.otp_recovery_forced_until)
     end
 
+    def recovery_blocked?(time = now)
+      return false if self.otp_recovery_blocked_until.blank?
+
+      time.before?(self.otp_recovery_blocked_until)
+    end
+
     def remaining_otp_attempts
       [(self.class.otp_max_failed_attempts - otp_failed_attempts), 0].max
     end

@@ -20,6 +20,7 @@ en:
         otp_by_email_code_sent: 'Please enter the OTP code sent to your email.'
         otp_by_email_code_resent: 'Resent OTP Code to your email. Please check your email.'
         otp_by_email_code_expired: 'OTP code has expired. Please check your email for a new one.'
+        recovery_blocked: "Too many recovery code attempts. You are temporarily locked out. Try again after 30 minutes or contact us."
       credentials_refresh:
         title: 'Please enter your password again.'
         explain: 'In order to ensure this is  safe, please enter your password again.'
