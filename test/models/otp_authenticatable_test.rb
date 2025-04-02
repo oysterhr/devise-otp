@@ -281,6 +281,22 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert user.otp_recovery_blocked_until.eql?(now+timeout)
   end
 
+  test "remaining_otp_recovery_attempts" do
+    user = User.new(otp_recovery_failed_attempts: 12)
+    max_attempts = user.class.otp_recovery_max_failed_attempts
+
+    assert_equal user.remaining_otp_recovery_attempts, 0
+
+    user.update(otp_recovery_failed_attempts: 0)
+    assert_equal user.remaining_otp_recovery_attempts, max_attempts
+
+    user.update(otp_recovery_failed_attempts: max_attempts-1)
+    assert_equal user.remaining_otp_recovery_attempts, 1
+
+    user.update(otp_recovery_failed_attempts: max_attempts-2)
+    assert_equal user.remaining_otp_recovery_attempts, 2
+  end
+
   test "otp_by_email_token_expired? true if otp_by_email_token_expires blank or before provided time" do
     user = User.new
     now = Time.now.utc
