@@ -161,7 +161,12 @@ module Devise::Models
 
     def bump_failed_attempts(time = now)
       self.otp_failed_attempts += 1
-      self.otp_recovery_forced_until = time + self.class.otp_recovery_timeout if max_failed_attempts_exceeded?
+
+      if max_failed_attempts_exceeded?
+        self.otp_recovery_forced_until = time + self.class.otp_recovery_timeout
+        self.otp_failed_attempts = 0
+      end
+
       self.save!
     end
 
