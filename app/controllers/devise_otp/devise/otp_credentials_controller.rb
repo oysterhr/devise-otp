@@ -56,7 +56,8 @@ module DeviseOtp
           # TODO: deduplicate code copied from #show
           if resource.within_recovery_timeout?
             @otp_recovery_forced = true
-            message_id = :too_many_failed_attempts unless @recovery
+            message_id = :too_many_failed_attempts unless @recovery  # skip message if already in recovery page
+            @recovery = true
 
           elsif !@recovery && @otp_by_email && resource.otp_by_email_token_expired?
             message_id = :otp_by_email_code_expired

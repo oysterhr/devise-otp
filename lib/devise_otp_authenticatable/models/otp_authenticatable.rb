@@ -153,7 +153,7 @@ module Devise::Models
     end
 
     def max_failed_attempts_exceeded?
-      otp_failed_attempts > self.class.otp_max_failed_attempts
+      otp_failed_attempts >= self.class.otp_max_failed_attempts
     end
 
     def bump_failed_attempts(time = now)
