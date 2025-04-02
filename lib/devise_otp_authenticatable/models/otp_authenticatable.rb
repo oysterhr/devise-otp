@@ -174,6 +174,10 @@ module Devise::Models
       self.save!
     end
 
+    def max_recovery_failed_attempts_exceeded?
+      otp_recovery_failed_attempts > self.class.otp_recovery_max_failed_attempts
+    end
+
     def reset_failed_attempts
       update!(otp_failed_attempts: 0, otp_recovery_forced_until: nil, otp_recovery_failed_attempts: 0, otp_recovery_blocked_until: nil)
     end

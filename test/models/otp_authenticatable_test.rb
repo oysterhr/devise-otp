@@ -192,6 +192,21 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert_equal user.max_failed_attempts_exceeded?, true
   end
 
+  # true when otp_recovery_failed_attempts > otp_max_recovery_failed_attempts
+  test "max_recovery_failed_attempts_exceeded?" do
+    user = User.new
+    max_failed = user.class.otp_recovery_max_failed_attempts
+
+    user.update(otp_recovery_failed_attempts: max_failed-1)
+    assert_equal user.max_recovery_failed_attempts_exceeded?, false
+
+    user.update(otp_recovery_failed_attempts: max_failed)
+    assert_equal user.max_recovery_failed_attempts_exceeded?, false
+
+    user.update(otp_recovery_failed_attempts: max_failed+1)
+    assert_equal user.max_recovery_failed_attempts_exceeded?, true
+  end
+
   test "within_recovery_timeout? is true when current time is before otp_recovery_forced_until" do
     user = User.new
     now = Time.now.utc
