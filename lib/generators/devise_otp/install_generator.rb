@@ -51,6 +51,12 @@ module DeviseOtp
   # Email OTP code valid for
   #config.otp_by_email_code_timeout = 5.minutes
 
+  # Max number of allowed recovery attempts before recovery is blocked
+  #config.otp_recovery_max_failed_attempts = 5
+
+  # Block recovery for this duration after otp_recovery_max_failed_attempts is exceeded
+  #config.otp_recovery_blocked_timeout = 30.minutes
+
         CONTENT
 
         inject_into_file "config/initializers/devise.rb", content, before: /end[ |\n]+\Z/

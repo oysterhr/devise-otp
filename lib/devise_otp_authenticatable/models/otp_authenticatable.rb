@@ -13,7 +13,10 @@ module Devise::Models
     module ClassMethods
       ::Devise::Models.config(self, :otp_authentication_timeout, :otp_drift_window, :otp_trust_persistence,
         :otp_mandatory, :otp_credentials_refresh, :otp_issuer, :otp_recovery_token_count,
-        :otp_controller_path, :otp_max_failed_attempts, :otp_recovery_timeout, :otp_by_email_code_timeout)
+        :otp_controller_path, :otp_max_failed_attempts, :otp_recovery_timeout, :otp_by_email_code_timeout,
+        :otp_recovery_max_failed_attempts,
+        :otp_recovery_blocked_timeout,
+      )
 
       def find_valid_otp_challenge(challenge)
         with_valid_otp_challenge(Time.now).where(otp_session_challenge: challenge).first
@@ -148,8 +151,14 @@ module Devise::Models
       time.before?(self.otp_recovery_forced_until)
     end
 
+    def recovery_blocked?(time = now)
+      return false if self.otp_recovery_blocked_until.blank?
+
+      time.before?(self.otp_recovery_blocked_until)
+    end
+
     def remaining_otp_attempts
-      [(self.class.otp_max_failed_attempts - otp_failed_attempts), 0].max
+      (self.class.otp_max_failed_attempts - otp_failed_attempts).clamp(0..)
     end
 
     def max_failed_attempts_exceeded?
@@ -167,8 +176,27 @@ module Devise::Models
       self.save!
     end
 
+    def bump_failed_recovery_attempts(time = now)
+      self.otp_recovery_failed_attempts += 1
+
+      if max_recovery_failed_attempts_exceeded?
+        self.otp_recovery_blocked_until = time + self.class.otp_recovery_blocked_timeout
+        self.otp_recovery_failed_attempts = 0
+      end
+
+      self.save!
+    end
+
+    def max_recovery_failed_attempts_exceeded?
+      otp_recovery_failed_attempts >= self.class.otp_recovery_max_failed_attempts
+    end
+
+    def remaining_otp_recovery_attempts
+      (self.class.otp_recovery_max_failed_attempts - otp_recovery_failed_attempts).clamp(0..)
+    end
+
     def reset_failed_attempts
-      update!(otp_failed_attempts: 0, otp_recovery_forced_until: nil)
+      update!(otp_failed_attempts: 0, otp_recovery_forced_until: nil, otp_recovery_failed_attempts: 0, otp_recovery_blocked_until: nil)
     end
 
     def otp_by_email_token

@@ -15,7 +15,9 @@ module DeviseOtp
       # show a request for the OTP token
       #
       def show
-        if @otp_recovery_forced
+        if @recovery_blocked
+          message_type, message_id = [:alert, :recovery_blocked]
+        elsif @otp_recovery_forced
           message_type, message_id = [:alert, :too_many_failed_attempts]
         elsif !@recovery && @otp_by_email
           if resource.otp_by_email_token_expired?
@@ -34,6 +36,12 @@ module DeviseOtp
       # signs the resource in, if the OTP token is valid and the user has a valid challenge
       #
       def update
+        if @recovery_blocked
+          otp_set_flash_message(:alert, :recovery_blocked, now: true)
+          yield resource, :recovery_blocked if block_given?
+          return render :show
+        end
+
         if @token.blank?
           otp_set_flash_message(:alert, :token_blank, now: true)
           yield resource, :token_blank if block_given?
@@ -50,11 +58,19 @@ module DeviseOtp
           yield resource, :success if block_given?
           respond_with resource, location: after_sign_in_path_for(resource)
         else
-          resource.bump_failed_attempts
+          if @otp_recovery_forced || @recovery
+            resource.bump_failed_recovery_attempts
+          else
+            resource.bump_failed_attempts
+          end
 
           message_id = :token_invalid
           # TODO: deduplicate code copied from #show
-          if resource.within_recovery_timeout?
+          if resource.recovery_blocked?
+            @recovery_blocked = true
+            message_id = :recovery_blocked
+
+          elsif resource.within_recovery_timeout?
             @otp_recovery_forced = true
             message_id = :too_many_failed_attempts unless @recovery  # skip message if already in recovery page
             @recovery = true
@@ -110,6 +126,7 @@ module DeviseOtp
       end
 
       def set_otp_state
+        @recovery_blocked = resource.recovery_blocked?
         @recovery = (recovery_enabled? && params[:recovery] == "true")
         if resource.otp_by_email_enabled?
           @otp_by_email = true

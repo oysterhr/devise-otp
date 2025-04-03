@@ -86,6 +86,17 @@ module Devise
   @@otp_by_email_code_timeout = 5.minutes
 
   #
+  # allowed recovery failed attempts before recovery is blocked
+  #
+  mattr_accessor :otp_recovery_max_failed_attempts
+  @@otp_recovery_max_failed_attempts = 5
+
+  #
+  # block recovery for the duration after otp_recovery_max_failed_attempts are reached
+  #
+  mattr_accessor :otp_recovery_blocked_timeout
+  @@otp_recovery_blocked_timeout = 30.minutes
+  #
   # add PublicHelpers to helpers class variable to ensure that per-mapping helpers are present.
   # this integrates with the "define_helpers," which is run when adding each mapping in the Devise gem (lib/devise.rb#541)
   #

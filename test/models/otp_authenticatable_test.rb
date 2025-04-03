@@ -175,7 +175,8 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert u.otp_recovery_counters == (20..29).map.to_json
   end
 
-  test "max_failed_attempts_exceeded? is true when failed_attempts > otp_max_failed_attempts" do
+  # is true when failed_attempts >= otp_max_failed_attempts
+  test "max_failed_attempts_exceeded?" do
     user = User.new
     otp_max_failed_attempts = user.class.otp_max_failed_attempts
 
@@ -184,12 +185,27 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert_equal user.max_failed_attempts_exceeded?, false
 
     user.update(otp_failed_attempts: otp_max_failed_attempts)
-    assert user.otp_failed_attempts = otp_max_failed_attempts
-    assert_equal user.max_failed_attempts_exceeded?, false
+    assert_equal user.otp_failed_attempts, otp_max_failed_attempts
+    assert_equal user.max_failed_attempts_exceeded?, true
 
     user.update(otp_failed_attempts: otp_max_failed_attempts+1)
     assert user.otp_failed_attempts > otp_max_failed_attempts
     assert_equal user.max_failed_attempts_exceeded?, true
+  end
+
+  # true when otp_recovery_failed_attempts >= otp_max_recovery_failed_attempts
+  test "max_recovery_failed_attempts_exceeded?" do
+    user = User.new
+    max_failed = user.class.otp_recovery_max_failed_attempts
+
+    user.update(otp_recovery_failed_attempts: max_failed-1)
+    assert_equal user.max_recovery_failed_attempts_exceeded?, false
+
+    user.update(otp_recovery_failed_attempts: max_failed)
+    assert_equal user.max_recovery_failed_attempts_exceeded?, true
+
+    user.update(otp_recovery_failed_attempts: max_failed+1)
+    assert_equal user.max_recovery_failed_attempts_exceeded?, true
   end
 
   test "within_recovery_timeout? is true when current time is before otp_recovery_forced_until" do
@@ -205,16 +221,26 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert_equal user.within_recovery_timeout?(now+1), false
   end
 
-  test "reset_failed_attempts sets otp_failed_attemps to 0, and otp_recovery_forced_until to nil" do
+  # Sets otp_failed_attempts to 0, otp_recovery_forced_until to nil
+  # otp_recovery_failed_attempts to 0, otp_recovery_blocked_until to nil
+  test "reset_failed_attempts" do
     user = User.first
-    user.update!(otp_failed_attempts: 12, otp_recovery_forced_until: Time.now.utc)
+    now = Time.now.utc
+    user.update!(
+      otp_failed_attempts: 12, otp_recovery_forced_until: now,
+      otp_recovery_failed_attempts: 12, otp_recovery_blocked_until: now,
+    )
 
     user.reset_failed_attempts
     assert_equal user.otp_failed_attempts, 0
     assert_nil user.otp_recovery_forced_until
+    assert_equal user.otp_recovery_failed_attempts, 0
+    assert_nil user.otp_recovery_blocked_until
   end
 
-  test "bump_failed_attempts increases otp_failed_attempts by 1. If otp_max_failed_attempts is exceeded sets otp_failed_attempts to 0 and sets otp_recovery_forced_until" do
+  # Increases otp_failed_attempts by 1.
+  # If otp_max_failed_attempts is exceeded sets otp_failed_attempts to 0 and sets otp_recovery_forced_until
+  test "bump_failed_attempts" do
     user = User.first
     otp_max_failed_attempts = user.class.otp_max_failed_attempts
     otp_recovery_timeout = user.class.otp_recovery_timeout
@@ -227,12 +253,51 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     assert_nil user.otp_recovery_forced_until
 
     user.bump_failed_attempts(now)
-    assert_equal user.otp_failed_attempts, otp_max_failed_attempts
-    assert_nil user.otp_recovery_forced_until
-
-    user.bump_failed_attempts(now)
     assert_equal user.otp_failed_attempts, 0
     assert user.otp_recovery_forced_until.eql?(now+otp_recovery_timeout)
+
+    user.bump_failed_attempts(now)
+    assert_equal user.otp_failed_attempts, 1
+    assert user.otp_recovery_forced_until.eql?(now+otp_recovery_timeout)
+  end
+
+  # Increases otp_recovery_failed_attempts by 1 in regular case.
+  # Sets otp_recovery_blocked_until and otp_recovery_failed_attempts=0 when otp_recovery_max_failed_attempts are reached.
+  test "bump_failed_recovery_attempts" do
+    user = User.first
+    max_attempts = user.class.otp_recovery_max_failed_attempts
+    timeout = user.class.otp_recovery_blocked_timeout
+    now = Time.now.utc.round(6)
+
+    user.update!(otp_recovery_failed_attempts: max_attempts-2, otp_recovery_blocked_until: nil)
+
+    user.bump_failed_recovery_attempts(now)
+    assert_equal user.otp_recovery_failed_attempts, max_attempts-1
+    assert_nil user.otp_recovery_blocked_until
+
+    user.bump_failed_recovery_attempts(now)
+    assert_equal user.otp_recovery_failed_attempts, 0
+    assert user.otp_recovery_blocked_until.eql?(now+timeout)
+
+    user.bump_failed_recovery_attempts(now)
+    assert_equal user.otp_recovery_failed_attempts, 1
+    assert user.otp_recovery_blocked_until.eql?(now+timeout)
+  end
+
+  test "remaining_otp_recovery_attempts" do
+    user = User.new(otp_recovery_failed_attempts: 12)
+    max_attempts = user.class.otp_recovery_max_failed_attempts
+
+    assert_equal user.remaining_otp_recovery_attempts, 0
+
+    user.update(otp_recovery_failed_attempts: 0)
+    assert_equal user.remaining_otp_recovery_attempts, max_attempts
+
+    user.update(otp_recovery_failed_attempts: max_attempts-1)
+    assert_equal user.remaining_otp_recovery_attempts, 1
+
+    user.update(otp_recovery_failed_attempts: max_attempts-2)
+    assert_equal user.remaining_otp_recovery_attempts, 2
   end
 
   test "otp_by_email_token_expired? true if otp_by_email_token_expires blank or before provided time" do
