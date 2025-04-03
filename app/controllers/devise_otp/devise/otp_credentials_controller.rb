@@ -36,6 +36,12 @@ module DeviseOtp
       # signs the resource in, if the OTP token is valid and the user has a valid challenge
       #
       def update
+        if @recovery_blocked
+          otp_set_flash_message(:alert, :recovery_blocked, now: true)
+          yield resource, :recovery_blocked if block_given?
+          return render :show
+        end
+
         if @token.blank?
           otp_set_flash_message(:alert, :token_blank, now: true)
           yield resource, :token_blank if block_given?
