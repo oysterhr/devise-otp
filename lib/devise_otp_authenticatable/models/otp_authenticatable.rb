@@ -158,7 +158,7 @@ module Devise::Models
     end
 
     def remaining_otp_attempts
-      [(self.class.otp_max_failed_attempts - otp_failed_attempts), 0].max
+      (self.class.otp_max_failed_attempts - otp_failed_attempts).clamp(0..)
     end
 
     def max_failed_attempts_exceeded?
