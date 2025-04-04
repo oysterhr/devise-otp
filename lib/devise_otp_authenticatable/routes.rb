@@ -20,7 +20,7 @@ module ActionDispatch::Routing
           path: mapping.path_names[:credentials], controller: controllers[:otp_credentials] do
           get :refresh, action: "get_refresh"
           put :refresh, action: "set_refresh"
-          get :resend_email, action: "resend_email"
+          post :resend_email, action: "resend_email"
         end
 
       end
