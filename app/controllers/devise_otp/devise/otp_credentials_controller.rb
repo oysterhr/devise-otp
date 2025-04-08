@@ -92,9 +92,10 @@ module DeviseOtp
         otp_set_flash_message(:notice, :otp_by_email_code_resent)
         yield resource if block_given?
 
-        respond_to do |format|
-          format.html { render :show }
-          format.json { render json: { token_remaining_time: @otp_by_email_token_remaining_time } }
+        if params[:as_json]
+          render json: { token_remaining_time: @otp_by_email_token_remaining_time }
+        else
+          render :show
         end
       end
 
