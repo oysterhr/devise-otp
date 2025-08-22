@@ -111,7 +111,7 @@ class OtpAuthenticatableTest < ActiveSupport::TestCase
     u = User.first
     u.populate_otp_secrets!
     u.enable_otp!
-    challenge = u.generate_otp_challenge!(1.second)
+    u.generate_otp_challenge!(1.second)
     sleep(2)
     assert_equal false, u.otp_challenge_valid?
   end

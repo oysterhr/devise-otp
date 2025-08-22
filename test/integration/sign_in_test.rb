@@ -18,7 +18,7 @@ class SignInTest < ActionDispatch::IntegrationTest
   end
 
   test "a new user, just signed in, should be able to see and click the 'Enable Two-Factor Authentication' link" do
-    user = sign_user_in
+    sign_user_in
 
     visit user_otp_token_path
     assert page.has_content?("Disabled")
@@ -92,7 +92,8 @@ class SignInTest < ActionDispatch::IntegrationTest
   test "fail same token reuse authentication" do
     user = enable_otp_and_sign_in
 
-    freeze_time do
+    travel_to Time.current
+    begin
       token = ROTP::TOTP.new(user.otp_auth_secret).at(Time.now)
 
       submit_token(token)
@@ -106,6 +107,8 @@ class SignInTest < ActionDispatch::IntegrationTest
 
       assert_equal user_otp_credential_path, current_path
       assert page.has_content? "The token you provided was invalid."
+    ensure
+      travel_back
     end
   end
 

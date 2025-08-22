@@ -72,7 +72,7 @@ class RefreshTest < ActionDispatch::IntegrationTest
   end
 
   test "user should be finally be able to access their settings, and just password is enough" do
-    user = enable_otp_and_sign_in_with_otp
+    enable_otp_and_sign_in_with_otp
 
     sleep(2)
     visit user_otp_token_path
