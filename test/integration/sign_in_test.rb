@@ -89,6 +89,26 @@ class SignInTest < ActionDispatch::IntegrationTest
     assert_equal root_path, current_path
   end
 
+  test "fail same token reuse authentication" do
+    user = enable_otp_and_sign_in
+
+    freeze_time do
+      token = ROTP::TOTP.new(user.otp_auth_secret).at(Time.now)
+
+      submit_token(token)
+      assert_equal root_path, current_path
+
+      sign_out
+
+      travel 20.seconds do
+        sign_in_with_otp(user, token)
+      end
+
+      assert_equal user_otp_credential_path, current_path
+      assert page.has_content? "The token you provided was invalid."
+    end
+  end
+
   test "should fail if the the challenge times out" do
     old_timeout = User.otp_authentication_timeout
     User.otp_authentication_timeout = 1.second
