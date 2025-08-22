@@ -49,6 +49,7 @@ module DeviseOtp
         end
 
         if resource.otp_challenge_valid? && resource.validate_otp_token(@token, @recovery)
+          resource.record_last_otp!(@token)
           resource.reset_failed_attempts
 
           sign_in(resource_name, resource)
