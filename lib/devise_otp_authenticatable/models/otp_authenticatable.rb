@@ -123,7 +123,7 @@ module Devise::Models
     alias_method :valid_otp_token?, :validate_otp_token
 
     def otp_replay?(token)
-      (token == otp_last_token) && (otp_last_used_at.present? && otp_last_used_at > Time.now.ago(30 * (self.class.otp_drift_window+1)))
+      (token == otp_last_token) && (otp_last_used_at.present? && otp_last_used_at > (30 * (self.class.otp_drift_window+1)).seconds.ago)
     end
 
     def validate_otp_by_email(token, time = now)
