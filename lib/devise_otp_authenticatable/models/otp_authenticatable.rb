@@ -5,6 +5,7 @@ module Devise::Models
   module OtpAuthenticatable
     extend ActiveSupport::Concern
     EMAIL_OTP_EXTRA_SESSION_TIME = 30.seconds
+    OTP_REPLAY_WINDOW_SECONDS = 30.seconds  # based on 30 second default interval used by authenticator apps
 
     included do
       scope :with_valid_otp_challenge, lambda { |time| where("otp_challenge_expires > ?", time) }
@@ -123,7 +124,7 @@ module Devise::Models
     alias_method :valid_otp_token?, :validate_otp_token
 
     def otp_replay?(token)
-      (token == otp_last_token) && (otp_last_used_at.present? && otp_last_used_at > (30 * (self.class.otp_drift_window+1)).seconds.ago)
+      (token == otp_last_token) && (otp_last_used_at.present? && otp_last_used_at.after?( ( (self.class.otp_drift_window+1)*OTP_REPLAY_WINDOW_SECONDS).ago) )
     end
 
     def validate_otp_by_email(token, time = now)
