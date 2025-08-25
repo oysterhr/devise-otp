@@ -21,6 +21,9 @@ class DeviseOtpAddToUsers < ActiveRecord::Migration[7.0]
 
       t.string    :otp_session_challenge
       t.datetime  :otp_challenge_expires
+
+      t.string    :otp_last_token
+      t.datetime  :otp_last_used_at
     end
     add_index :users, :otp_session_challenge,  :unique => true
     add_index :users, :otp_challenge_expires

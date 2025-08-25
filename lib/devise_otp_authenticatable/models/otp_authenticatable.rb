@@ -5,6 +5,7 @@ module Devise::Models
   module OtpAuthenticatable
     extend ActiveSupport::Concern
     EMAIL_OTP_EXTRA_SESSION_TIME = 30.seconds
+    OTP_REPLAY_WINDOW_SECONDS = 30.seconds  # based on 30 second default interval used by authenticator apps
 
     included do
       scope :with_valid_otp_challenge, lambda { |time| where("otp_challenge_expires > ?", time) }
@@ -79,7 +80,9 @@ module Devise::Models
         :otp_recovery_counters => "[]",
         :otp_failed_attempts => 0,
         :otp_by_email_token_expires => nil,
-        :otp_by_email_counter => 0
+        :otp_by_email_counter => 0,
+        :otp_last_token => nil,
+        :otp_last_used_at => nil,
       )
     end
 
@@ -108,6 +111,7 @@ module Devise::Models
 
     def validate_otp_token(token, recovery = false)
       return false if token.blank?
+      return false if otp_replay?(token)
 
       if recovery
         validate_otp_recovery_token token
@@ -118,6 +122,10 @@ module Devise::Models
       end
     end
     alias_method :valid_otp_token?, :validate_otp_token
+
+    def otp_replay?(token)
+      (token == otp_last_token) && (otp_last_used_at.present? && otp_last_used_at.after?( ( (self.class.otp_drift_window+1)*OTP_REPLAY_WINDOW_SECONDS).ago) )
+    end
 
     def validate_otp_by_email(token, time = now)
       return if otp_by_email_token_expired?(time)
@@ -196,7 +204,20 @@ module Devise::Models
     end
 
     def reset_failed_attempts
-      update!(otp_failed_attempts: 0, otp_recovery_forced_until: nil, otp_recovery_failed_attempts: 0, otp_recovery_blocked_until: nil)
+      update!(
+        otp_failed_attempts: 0,
+        otp_recovery_forced_until: nil,
+        otp_recovery_failed_attempts: 0,
+        otp_recovery_blocked_until: nil,
+        otp_by_email_token_expires: nil,
+      )
+    end
+
+    def record_last_otp!(last_used_code)
+      update!(
+        otp_last_token: last_used_code,
+        otp_last_used_at: Time.current
+      )
     end
 
     def otp_by_email_token
